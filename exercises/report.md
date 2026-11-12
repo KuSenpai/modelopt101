@@ -102,6 +102,8 @@ Ngày chạy: 07/11/2026 (chạy lại cùng bài 1.3; lần đầu 06/11 cho c�
 
 ## Tóm tắt
 
+- **Định nghĩa:** "vách đá" là mức bit đầu tiên accuracy giảm hơn 1 điểm so với FP32 (91.25%); "sụp" là khi accuracy
+  rơi hẳn (mất hàng chục điểm). Per-tensor vượt vách đá ở 4 bit và sụp ở 3 bit; per-channel vượt vách đá ở 3 bit và sụp ở 2 bit.
 - **PTQ per-tensor** giữ được đến 5 bit. Từ **4 bit** giảm quá 1 điểm (−1.67), từ **3 bit** giảm quá 5 điểm (−46.25).
 - **PTQ per-channel** lùi vách đá đi một bit. 4 bit chỉ mất 0.80 điểm, từ **3 bit** giảm quá 1 điểm (−4.83),
   đến **2 bit** thì sụp (−80.05).
@@ -193,7 +195,7 @@ student KD với bài 1.2)
   FX và ONNX Runtime QDQ.
 - **Chỉ tiêu "latency giảm ≥ 2 lần so với FP32 eager": đạt một phần.** ORT INT8 đạt **3.03x ở batch 1 (PASS)** nhưng
   1.95x ở batch 64; PyTorch INT8 đạt 1.88x / 1.52x (FAIL).
-- So cùng runtime, riêng INT8 chỉ cho **1.5–1.8x**. Phần còn lại của 3.03x đến từ việc ORT FP32 đã nhanh hơn
+- So cùng runtime, riêng INT8 chỉ cho **1.47–1.78x** (ORT: 1.55x ở batch 1, 1.47x ở batch 64; PyTorch: 1.78x / 1.49x). Phần còn lại của 3.03x đến từ việc ORT FP32 đã nhanh hơn
   PyTorch eager 1.95x.
 - Kích thước giảm 3.9 lần. PyTorch INT8 gần như giữ nguyên accuracy (−0.09), ORT INT8 mất 1.28 điểm.
 
@@ -234,7 +236,7 @@ Tăng tốc chỉ do INT8 (so cùng runtime):
 ## Nhận xét
 
 **INT8 thật có nhanh hơn, nhưng trên CPU này chưa tới 2x nếu so công bằng.** Khác với bài 1.1/1.2 (fake-quant,
-latency không đổi), ở đây conv chạy bằng kernel số nguyên nên latency giảm thật 1.5–1.8x. Con số 3.03x của ORT
+latency không đổi), ở đây conv chạy bằng kernel số nguyên nên latency giảm thật 1.47–1.78x (bảng bên dưới). Con số 3.03x của ORT
 trông đẹp nhưng trộn hai hiệu ứng: đổi runtime (ORT FP32 đã 1.95x vì ít overhead và fuse sẵn) và đổi kiểu số.
 
 **Vì sao chưa tới 2x** (giả thuyết, chưa tách riêng từng yếu tố):
@@ -258,7 +260,7 @@ MinMax (PyTorch dùng HistogramObserver, cắt bớt outlier), và U8S8 trên CP
 
 ## Tái hiện
 
-Mở `1.2_quant_cliff.ipynb` bằng nút "Open in Colab" (branch `exercise-1.3-1.4`), chọn T4 GPU, `Runtime → Run all`.
+Mở `1.2_quant_cliff.ipynb` bằng nút "Open in Colab" (branch `main`), chọn T4 GPU, `Runtime → Run all`.
 Phần 1.3 tự cài `onnx`, `onnxruntime`, `onnxscript` và đo trên CPU của chính runtime đó.
 
 ---
@@ -380,5 +382,5 @@ vì đọc/ghi tensor nhiều lần.
 
 ## Tái hiện
 
-Mở notebook bằng nút "Open in Colab" (branch `exercise-1.3-1.4`), chọn `Runtime → Change runtime type → L4 GPU`
+Mở notebook bằng nút "Open in Colab" (branch `main`), chọn `Runtime → Change runtime type → L4 GPU`
 (hoặc A100), rồi `Runtime → Run all`. Khoảng 5 phút trên L4, phần lớn là autotune.

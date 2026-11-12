@@ -1,0 +1,23 @@
+  fp32: done
+  bf16: done
+  int8: done
+  int4: done
+  awq4: done
+
+precision     weights  perplexity        decode
+-----------------------------------------------
+fp32           1447MB       33.19       4.9 tok/s
+bf16            724MB       33.22      14.3 tok/s
+int8            363MB       33.22       6.2 tok/s
+int4            244MB       40.58       2.1 tok/s
+awq4            244MB       34.84       3.0 tok/s
+
+[fp32] Model quantization is a technique used in machine learning to reduce the complexity of a model by compressing its parameters into a smaller set of coefficients, typically using a loss function that penalizes large coefficients. This process helps to improve model performance by reducing the computat
+
+[bf16] Model quantization is a technique used in machine learning to reduce the complexity of a model by compressing its parameters into a smaller set of coefficients, typically using a loss function that penalizes large coefficients. This process helps to improve model performance by reducing the computat
+
+[int8] Model quantization is a technique used in machine learning to reduce the complexity of a model by compressing its parameters into a smaller set of coefficients, typically using a loss function that penalizes large coefficients. This process helps to improve model performance and efficiency by reduci
+
+[int4] Model quantization is a technique used in machine learning and data analysis to reduce the dimensionality of a dataset by compressing the data into a lower-dimensional representation while preserving the most important information.
+
+[awq4] Model quantization is a technique used in machine learning to reduce the complexity of a model by compressing its parameters into a smaller, more compact representation. This compression is achieved by replacing the original model's parameters with a smaller set of parameters, which are often referr

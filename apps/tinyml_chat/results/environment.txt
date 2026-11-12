@@ -1,0 +1,6 @@
+date: 2026-11-12T14:49:38+07:00
+Python 3.11.7
+torch 2.14.0+cpu threads 6
+Intel64 Family 6 Model 141 Stepping 1, GenuineIntel
+11th Gen Intel(R) Core(TM) i5-11400H @ 2.70GHz
+15.7 GB RAM
