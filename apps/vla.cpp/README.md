@@ -34,10 +34,10 @@ with vla.cpp's `eval/client/benchmark.py`; weights = `weight_buf` the server rep
 | (default: LM GEMMs widened to f32) | 93/100 (93%) | 183 ms | 1763 MiB |
 | `--weight-dtype bf16`            | 27/30 (90%)    | 221 ms         |  985 MiB |
 | `--weight-dtype f16`             | 27/30 (90%)    | 225 ms         |  985 MiB |
-| `--num-steps 5` (checkpoint: 10) | 28/30 (93%)    | **155 ms**     | 1763 MiB |
+| `--num-steps 5` (checkpoint: 10) | 91/100 (91%)   | **155 ms**     | 1763 MiB |
 | `--flash-attn 1`                 | 26/30 (87%)    | 163 ms         | 1763 MiB |
 
-- **Fewer flow-matching steps is the speed win**: half the denoising steps, -16% latency, no
+- **Fewer flow-matching steps is the speed win**: half the denoising steps, -15% latency, no
   measurable loss in success. Flash attention gives -11%.
 - **Smaller weights are not faster here**: bf16/f16 save 44% of weight memory but run ~20% slower
   than the f32-widened default - the same lesson as TinyML Chat: speed depends on the kernel.

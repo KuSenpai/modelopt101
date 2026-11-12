@@ -11,7 +11,7 @@ Cả hai ứng dụng của phần Applications đều chạy được trên lap
   INT4 từ +22% xuống **+5%**, kích thước vẫn 244 MB. Nhanh nhất vẫn là bf16, đạt 20,1 tok/s.
 - **vla.cpp + SmolVLA** (GPU RTX 3050 Laptop 4 GB, qua WSL2): robot mô phỏng gắp thành công
   **93/100** episode `libero_object`. Giảm số bước khử nhiễu từ 10 xuống 5 làm server nhanh hơn
-  **16%** (183 → 155 ms mỗi lần gọi) mà tỉ lệ thành công không giảm. Gắp nhiều vật liên tiếp trong
+  **15%** (183 → 155 ms mỗi lần gọi) mà tỉ lệ thành công không giảm. Gắp nhiều vật liên tiếp trong
   một cảnh vẫn chỉ đạt 1–2/4.
 - **Bài học chung:** trọng số nhỏ hơn không có nghĩa là chạy nhanh hơn. INT8/INT4 trên CPU và
   bf16/f16 trên GPU đều tiết kiệm bộ nhớ nhưng chậm hơn, vì tốc độ phụ thuộc vào kernel.
@@ -100,7 +100,7 @@ Nhận xét:
 ## Ứng dụng 2: SmolVLA chạy bằng vla.cpp ([apps/vla.cpp](apps/vla.cpp/))
 
 SmolVLA chạy trên GPU laptop 4 GB và gắp thành công 93/100 episode `libero_object`. Giảm số bước
-khử nhiễu xuống 5 là cách tăng tốc tốt nhất: −16% độ trễ mà tỉ lệ thành công không giảm.
+khử nhiễu xuống 5 là cách tăng tốc tốt nhất: −15% độ trễ mà tỉ lệ thành công không giảm.
 
 [vla.cpp](https://fai-modelopt-tech.github.io/vla-cpp.github.io/) là runtime C++ để suy luận mô
 hình Vision-Language-Action, xây trên llama.cpp. Mô hình dùng bản đóng gói GGUF
@@ -163,16 +163,34 @@ nhất dưới 9/10.
 
 Độ trễ là median của 100 lần gọi liên tiếp, đo bằng `eval/client/benchmark.py` có sẵn của vla.cpp.
 VRAM là `weight_buf` do server báo. Tỉ lệ thành công tính trên cả 10 task: 10 episode mỗi task cho
-cấu hình mặc định, 3 episode mỗi task cho các cấu hình còn lại.
+cấu hình mặc định, `--num-steps 5` và các cấu hình Q8_0/Q4_0, 3 episode mỗi task cho các cấu hình còn lại.
+Log, `episodes.csv` và một vài video của mọi lần chạy nằm trong [apps/vla.cpp/results/](apps/vla.cpp/results/).
+Q8_0/Q4_0 là weight của LM lượng tử hóa bằng `scripts/quantize_gguf.py` của vla.cpp (vision và action expert giữ float).
 
 | Cấu hình server (`SERVER_ARGS`)      | Thành công | Độ trễ mỗi lần gọi (ms) | VRAM trọng số (MiB) |
 | ---------------------------------------- | -----------: | ----------------------------: | --------------------: |
 | mặc định (GEMM của LM nới lên f32) | 93/100 (93%) |                           183 |                  1763 |
 | `--weight-dtype bf16`                  |  27/30 (90%) |                           221 |                   985 |
 | `--weight-dtype f16`                   |  27/30 (90%) |                           225 |                   985 |
-| `--num-steps 5` (checkpoint dùng 10)  |  28/30 (93%) |                 **155** |                  1763 |
+| `--num-steps 5` (checkpoint dùng 10)  |  91/100 (91%) |                 **155** |                  1763 |
 | `--flash-attn 1`                       |  26/30 (87%) |                           163 |                  1763 |
 | `--weight-dtype bf16 --num-steps 5`    |    chưa đo |                           179 |                   985 |
+| Q8_0                                   |  90/100 (90%) |                           167 |                   871 |
+| Q4_0                                   |    chưa đo |                           170 |                   716 |
+| Q8_0 + `--num-steps 5`                 |  85/100 (85%) |                       **143** |                   871 |
+| Q4_0 + `--num-steps 5`                 |  64/100 (64%) |                           142 |                   715 |
+
+**Vì sao bf16 chậm hơn.** Tách thời gian mỗi lần gọi từ server log (10 lần): vision giữ nguyên
+(94.7 ms mặc định, 94.1 ms bf16), toàn bộ chênh lệch nằm ở phần suy luận LM + action expert
+(88.3 → 125.5 ms), cả ở prefill lẫn mỗi bước khử nhiễu (~5.8 → ~8.4 ms/bước). Cấu hình mặc định nới
+416 weight GEMM của LM lên f32 (`--mm-prec f32`), còn bf16 giữ weight bf16. Giả thuyết là kernel bf16 của
+ggml-cuda trên RTX 3050 chậm hơn đường f32 cho các shape nhỏ này; chưa kiểm chứng ở mức kernel vì `nsys`
+trong WSL2 không ghi được kernel CUDA.
+
+**Quantization.** Q8_0 một mình giảm độ trễ 9% và VRAM một nửa, mất 3 episode (trong nhiễu). Q4_0 không nhanh
+hơn Q8_0 và tỉ lệ thành công sụp xuống 64/100. Q8_0 kết hợp `--num-steps 5` đạt 143 ms (−22%) nhưng mất 8
+episode (85/100), cao hơn mức mỗi kỹ thuật mất riêng lẻ; có thể do sai số cộng dồn, cần thêm seed. Phần vision
+(~95 ms) chưa được lượng tử hóa nên chiếm hơn 2/3 thời gian ở các cấu hình nhanh.
 
 ### Kết quả chế độ `multi`
 
@@ -198,7 +216,7 @@ nên giả thuyết này bị loại.
 ### Nhận xét
 
 - **Giảm số bước khử nhiễu là cách tăng tốc hiệu quả nhất.** Từ 10 xuống 5 bước flow-matching, độ
-  trễ giảm 16% mà tỉ lệ thành công không giảm. Flash attention giảm 11%. Hai cách này chưa được thử
+  trễ giảm 15% mà tỉ lệ thành công không giảm. Flash attention giảm 11%. Hai cách này chưa được thử
   kết hợp.
 - **Trọng số nhỏ hơn không nhanh hơn.** bf16/f16 tiết kiệm 44% VRAM nhưng chậm hơn khoảng 20% so
   với cấu hình mặc định, vốn nới trọng số lên f32. Đây là cùng bài học với TinyML Chat: tốc độ phụ
