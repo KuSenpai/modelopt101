@@ -360,8 +360,24 @@ L4 (72 W) hạ xung khi chạy lâu, chưa kiểm chứng.
 
 **0.06x cũ là chuyện của T4, không phải của kernel.** Trên T4, mọi config (tile 32×64 đến 256×128, 2–8 warp) đều cho
 khoảng 1 TFLOP/s. Trần cố định không phụ thuộc tile như vậy là dấu hiệu `tl.dot` FP16 không chạy trên tensor core
-ở sm_75 với Triton 3.8. Mình chưa xác nhận trực tiếp; cách kiểm tra là tìm lệnh `mma` trong PTX của kernel đã biên
-dịch.
+ở sm_75 với Triton 3.8. **Đã xác nhận bằng PTX** (bên dưới).
+
+**PTX (mục 9 của notebook): Triton 3.8 không dùng tensor core trên T4.** Biên dịch `matmul_kernel` với cấu hình cố
+định của notebook 05 (64×64×32, `GROUP_M = 8`, FP16 vào, Triton 3.8.0) rồi đếm lệnh trong PTX:
+
+| Lệnh | L4 (sm_89) | T4 (sm_75) |
+|---|---:|---:|
+| `mma.sync` | **16** (`m16n8k16.row.col.f32.f16.f16.f32`) | **0** |
+| `wgmma` (chỉ có trên Hopper) | 0 | 0 |
+| `fma.rn.f16` | 0 | 0 |
+| `fma.rn.f32` | 0 | **1024** |
+| TTGIR `nvidia_mma` / `tt.dot` | 1 / 2 | 0 / 1 |
+
+Trên L4, `tl.dot` biên dịch hoàn toàn thành tensor core (khớp 114% cuBLAS). Trên T4, `tl.dot` không được gán layout
+MMA (`nvidia_mma` = 0) và PTX không có một lệnh `mma` nào; phép nhân chạy bằng 1024 lệnh `fma.rn.f32` trên CUDA core,
+nên các toán hạng FP16 bị nới lên FP32. Đây là lý do chính của ~1 TFLOP/s trên T4: bằng khoảng 12% đỉnh CUDA core FP32
+(~8 TFLOP/s) và khoảng 3–6% của cuBLAS (cuBLAS dùng tensor core, 15–37 TFLOP/s). Kết luận 0.06x là do Triton 3.8
+trên Turing, không phải do code kernel.
 
 **ReLU fuse miễn phí, GROUP_M chỉ có lợi khi ma trận vượt L2.** ReLU trong epilogue thêm −6% đến +5%, nằm trong
 nhiễu đo; ReLU riêng của torch tốn một kernel và một lượt đọc/ghi `C` nữa, thêm 2–29%. GROUP_M = 8 nhanh hơn
@@ -375,8 +391,7 @@ vì đọc/ghi tensor nhiều lần.
 ## Hạn chế và hướng tiếp theo
 
 - **Mỗi GPU một lần chạy.** Hai lần chạy trên L4 lệch nhau vài phần trăm, nên chênh lệch dưới khoảng 5% là nhiễu.
-- **T4:** xác nhận giả thuyết tensor core bằng PTX. Nếu đúng thì trên Turing nên dùng cuBLAS, hoặc một bản Triton
-  cũ hơn còn hỗ trợ MMA cho sm_75.
+- **T4:** đã xác nhận bằng PTX (0 `mma.sync`, 1024 `fma.rn.f32`); chưa thử bản Triton cũ hơn để xem có lấy lại tensor core không. Trên Turing nên dùng cuBLAS, hoặc một bản Triton cũ hơn còn hỗ trợ MMA cho sm_75.
 - **Chưa thử:** A/B chuyển vị, batch matmul, FP8/INT8, và backward của layer norm.
 - **A100/H100:** chưa chạy. Colab có hiện lựa chọn A100 nhưng lần này dùng L4.
 
